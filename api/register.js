@@ -2,30 +2,56 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
-let isConnected = false;
+let cached = global.mongoose;
 
-async function connectDB() {
-  if (isConnected) return;
-  await mongoose.connect(process.env.MONGODB_URI);
-  isConnected = true;
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
 }
 
-module.exports = async (req, res) => {
+async function connectDB() {
+  if (cached.conn) return cached.conn;
+
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(process.env.MONGODB_URI).then(m => m);
+  }
+
+  cached.conn = await cached.promise;
+  return cached.conn;
+}
+
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  await connectDB();
+  try {
+    await connectDB();
 
-  const { name, email, password } = req.body;
+    const body =
+      typeof req.body === "string" ? JSON.parse(req.body) : req.body;
 
-  const userExists = await User.findOne({ email });
-  if (userExists) {
-    return res.json({ success: false, message: "User already exists" });
+    const { email, password } = body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.json({ success: false, message: "Invalid credentials" });
+    }
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.json({ success: false, message: "Invalid credentials" });
+    }
+
+    return res.json({
+      success: true,
+      message: "Login successful",
+      name: user.name,
+      email: user.email
+    });
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error" });
   }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  await User.create({ name, email, password: hashedPassword });
-
-  res.json({ success: true, message: "Registration successful" });
 };

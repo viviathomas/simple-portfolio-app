@@ -1,38 +1,53 @@
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
-const User = require("../models/User");
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import User from "../models/User.js";
 
-let isConnected = false;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-async function connectDB() {
-  if (isConnected) return;
-  await mongoose.connect(process.env.MONGODB_URI);
-  isConnected = true;
+if (!global.mongoose) {
+  global.mongoose = { conn: null, promise: null };
 }
 
-module.exports = async (req, res) => {
+async function connectDB() {
+  if (global.mongoose.conn) return global.mongoose.conn;
+
+  if (!global.mongoose.promise) {
+    global.mongoose.promise = mongoose.connect(MONGODB_URI).then(m => m);
+  }
+
+  global.mongoose.conn = await global.mongoose.promise;
+  return global.mongoose.conn;
+}
+
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  await connectDB();
+  try {
+    await connectDB();
 
-  const { email, password } = req.body;
+    const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
-  if (!user) {
-    return res.json({ success: false, message: "Invalid credentials" });
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.json({ success: false, message: "Invalid credentials" });
+    }
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      return res.json({ success: false, message: "Invalid credentials" });
+    }
+
+    return res.json({
+      success: true,
+      message: "Login successful",
+      name: user.name,
+      email: user.email
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
-
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    return res.json({ success: false, message: "Invalid credentials" });
-  }
-
-  res.json({
-    success: true,
-    message: "Login successful",
-    name: user.name,
-    email: user.email
-  });
-};
+}
