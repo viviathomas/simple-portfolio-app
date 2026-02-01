@@ -18,7 +18,7 @@ mongoose.connect(process.env.MONGODB_URI)
 
 const path = require("path");
 
-
+// Serve landing page
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
