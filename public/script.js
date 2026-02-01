@@ -24,17 +24,11 @@ async function login() {
   });
 
   const data = await res.json();
-
   document.getElementById("message").innerText = data.message;
 
-  
-  if (data.message === "Login successful") {
+  if (data.success) {
     localStorage.setItem("name", data.name);
     localStorage.setItem("email", data.email);
-
-    
-    setTimeout(() => {
-      window.location.href = "/portfolio.html";
-    }, 500);
+    window.location.href = "/portfolio.html";
   }
 }

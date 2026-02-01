@@ -2,24 +2,18 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 
-let cached = global.mongoose;
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
-}
+let cached = global.mongoose || (global.mongoose = { conn: null, promise: null });
 
 async function connectDB() {
   if (cached.conn) return cached.conn;
-
   if (!cached.promise) {
     cached.promise = mongoose.connect(process.env.MONGODB_URI).then(m => m);
   }
-
   cached.conn = await cached.promise;
   return cached.conn;
 }
 
-module.exports = async function handler(req, res) {
+module.exports = async (req, res) => {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
@@ -27,31 +21,24 @@ module.exports = async function handler(req, res) {
   try {
     await connectDB();
 
-    const body =
+    const { name, email, password } =
       typeof req.body === "string" ? JSON.parse(req.body) : req.body;
 
-    const { email, password } = body;
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.json({ success: false, message: "Invalid credentials" });
+    if (!name || !email || !password) {
+      return res.json({ success: false, message: "All fields required" });
     }
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.json({ success: false, message: "Invalid credentials" });
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.json({ success: false, message: "User already exists" });
     }
 
-    return res.json({
-      success: true,
-      message: "Login successful",
-      name: user.name,
-      email: user.email
-    });
+    const hashed = await bcrypt.hash(password, 10);
+    await User.create({ name, email, password: hashed });
+
+    res.json({ success: true, message: "Registration successful" });
   } catch (err) {
     console.error(err);
-    return res
-      .status(500)
-      .json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

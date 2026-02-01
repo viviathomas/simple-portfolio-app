@@ -1,25 +1,19 @@
-import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
-import User from "../models/User.js";
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const User = require("../models/User");
 
-const MONGODB_URI = process.env.MONGODB_URI;
-
-if (!global.mongoose) {
-  global.mongoose = { conn: null, promise: null };
-}
+let cached = global.mongoose || (global.mongoose = { conn: null, promise: null });
 
 async function connectDB() {
-  if (global.mongoose.conn) return global.mongoose.conn;
-
-  if (!global.mongoose.promise) {
-    global.mongoose.promise = mongoose.connect(MONGODB_URI).then(m => m);
+  if (cached.conn) return cached.conn;
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(process.env.MONGODB_URI).then(m => m);
   }
-
-  global.mongoose.conn = await global.mongoose.promise;
-  return global.mongoose.conn;
+  cached.conn = await cached.promise;
+  return cached.conn;
 }
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
@@ -27,7 +21,8 @@ export default async function handler(req, res) {
   try {
     await connectDB();
 
-    const { email, password } = req.body;
+    const { email, password } =
+      typeof req.body === "string" ? JSON.parse(req.body) : req.body;
 
     const user = await User.findOne({ email });
     if (!user) {
@@ -39,15 +34,14 @@ export default async function handler(req, res) {
       return res.json({ success: false, message: "Invalid credentials" });
     }
 
-    return res.json({
+    res.json({
       success: true,
       message: "Login successful",
       name: user.name,
       email: user.email
     });
-
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false, message: "Server error" });
   }
-}
+};
