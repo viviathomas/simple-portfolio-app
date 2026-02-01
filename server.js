@@ -16,6 +16,14 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.log(err));
 
+const path = require("path");
+
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+
 app.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
 
