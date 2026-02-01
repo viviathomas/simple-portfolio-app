@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Portfolio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+  <h2>My Portfolio</h2>
+
+  <p id="userInfo"></p>
+
+  <h3>About Me</h3>
+  <p>I am a computer science student passionate about web development.</p>
+
+  <h3>Skills</h3>
+  <ul>
+    <li>HTML, CSS, JavaScript</li>
+    <li>Node.js & MongoDB</li>
+    <li>Git & GitHub</li>
+  </ul>
+
+  <h3>Projects</h3>
+  <p>Simple Portfolio Web Application</p>
+
+  <button onclick="logout()">Logout</button>
+</div>
+
+<script>
+  const name = localStorage.getItem("name");
+  const email = localStorage.getItem("email");
+
+  if (!email) {
+    window.location.href = "/";
+  }
+
+  document.getElementById("userInfo").innerText =
+    `Logged in as: ${name} (${email})`;
+
+  function logout() {
+    localStorage.clear();
+    window.location.href = "/";
+  }
+</script>
+
+</body>
+</html>
